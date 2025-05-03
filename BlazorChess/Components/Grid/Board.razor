@@ -1,0 +1,333 @@
+﻿@using BlazorChess.Components.Pieces
+@using System.Diagnostics
+@inject IJSRuntime JSRuntime;
+@rendermode InteractiveServer
+<div class="chess-ui">
+	<div class="chess-board" @onmousemove="OnMouseMove" @oncontextmenu="ContextMenu" @oncontextmenu:preventDefault>
+		@for (int row = chessGrid.Height - 1; row >= 0; row--)
+		{
+			@for (int col = 0; col <= chessGrid.Width - 1; col++)
+			{
+				int rIndex = row;
+
+				int cIndex = col;
+				var isWhite = (row + col) % 2 == 0;
+				<div class="tile @(isWhite ? "white" : "black")
+					@(chessGrid.Grid[row,col] == selectedPiece && selectedPiece != null ? "selected" : "" )
+					@(legalMoves != null && legalMoves.Any(m => m.row == row && m.col == col) ? "legal-move" : "")"
+				@onmouseup="(e) => EndDrag(rIndex, cIndex, e)"
+				@onmousemove="OnDragMove"
+				@onmousedown="(e) => StartDrag(rIndex, cIndex, e)"
+				@ref="draggedPieceRef">
+
+					@if (chessGrid.Grid[row, col] != null)
+					{
+						bool isDraggingPiece = isDragging && draggedPiece != null && draggedPiece.Row == row && draggedPiece.Column == col;
+						<div style="opacity:@(isDraggingPiece ? "0" : "100")" class="piece">
+							@chessGrid.GetPieceSymbol(row, col)
+						</div>
+					}
+					//Pawn promotion
+@* 					@if (chessGrid.Grid[row, col] != null && chessGrid.Grid[row, col].PieceType == PieceType.Pawn)
+					{
+						<div class="promotion-options">
+							<button @onclick="() => chessGrid.PromotePawn(chessGrid.Grid[row, col], PieceType.Queen)">Q</button>
+							<button @onclick="() => chessGrid.PromotePawn(chessGrid.Grid[row, col], PieceType.Rook)">R</button>
+							<button @onclick="() => chessGrid.PromotePawn(chessGrid.Grid[row, col], PieceType.Knight)">N</button>
+							<button @onclick="() => chessGrid.PromotePawn(chessGrid.Grid[row, col], PieceType.Bishop)">B</button>
+						</div>
+					}) *@
+					@* <div class="coords">@row, @col</div>  *@
+					@* @onclick="() => SelectPiece(rIndex, cIndex)" *@
+				</div>
+			}
+		}
+	</div>
+	<div class="move-panel">
+		<div class="move-history">
+			<div class="move-list">
+				<table class="move-table">
+					@foreach (var group in chessGrid.MoveHistory.Select((m, i) => new { Move = m, Index = i }).GroupBy(x => x.Index / 2))
+					{
+						<tr>
+							<td>
+								@group.First().Move.TurnNum.
+							</td>
+							<td colspan="2">
+								<button @onclick="() => JumpToMove(group.First().Index + 1)">
+									@group.First().Move.MoveNotation
+								</button>
+							</td>
+							<td colspan="2">
+								@if (group.Count() > 1)
+								{
+									<button @onclick="() => JumpToMove(group.Last().Index + 1)">
+										@(" " + group.Last().Move.MoveNotation)
+									</button>
+								}
+							</td>
+						</tr>
+
+					}
+				</table>
+			</div>
+			<div class="btns-move-panel">
+				<div class="move-controls">
+					<button @onclick="GoToStart" disabled="@IsAtStart" class="@(IsAtStart ? "btn-disabled" : "") ">⏮ </button>
+					<button @onclick="GoBack" disabled="@IsAtStart" class="@(IsAtStart ? "btn-disabled" : "")">◀ </button>
+					<button @onclick="GoForward" disabled="@IsAtEnd" class="@(IsAtEnd ? "btn-disabled" : "")"> ▶</button>
+					<button @onclick="GoToEnd" disabled="@IsAtEnd" class="@(IsAtEnd ? "btn-disabled" : "")"> ⏭</button>
+				</div>
+			</div>
+
+		</div>
+
+	</div>
+
+	@if (isDragging && draggedPiece != null && selectedPiece != null)
+	{
+		<div class="ghost-piece" style="left:@(mouseX)px; top:@(mouseY)px">
+			@selectedPiece.PieceType
+		</div>
+	}
+	
+		<div class="promotion-options">
+			<button >Q</button>
+			<button>R</button>
+			<button >N</button>
+			<button >B</button>
+		</div>
+	
+</div>
+
+@code {
+	private ChessGrid chessGrid = new ChessGrid();
+	private ChessPiece? selectedPiece = null;
+	private ChessPiece? draggedPiece = null;
+	private ElementReference? draggedPieceRef;
+	private List<(int row, int col)>? legalMoves = null;
+	private int CurrentMoveIndex = 0;
+	private bool IsAtStart => CurrentMoveIndex == 0;
+	private bool IsAtEnd => CurrentMoveIndex == chessGrid.MoveHistory?.Count;
+	private bool ShowLegalMoves = false;
+	private bool isDragging = false;
+	private int dragStartRow;
+	private int dragStartCol;
+	private double mouseX;
+	private double mouseY;
+	private double boardOffsetX;
+	private double boardOffsetY;
+
+	protected override void OnInitialized()
+	{
+		chessGrid.InitializeBoard();
+	}
+	protected override async Task OnAfterRenderAsync(bool firstRender)
+	{
+		if (firstRender)
+		{
+			var rect = await JSRuntime.InvokeAsync<BoundingClientRect>("elementHelper.getBoundingClientRect", draggedPiece);
+			if (rect != null)
+			{
+				boardOffsetX = rect.X;
+				boardOffsetY = rect.Y;
+			}
+		}
+	}
+
+	private class BoundingClientRect
+	{
+		public double X { get; set; }
+		public double Y { get; set; }
+		public double Width { get; set; }
+		public double Height { get; set; }
+	}
+	private void HandleTileSelection(int row, int col)
+	{
+		ChessPiece? piece = chessGrid.GetPiece(row, col);
+		if (selectedPiece == null)
+		{
+			if (piece == null || chessGrid.ColourToMove != piece.Colour)
+				return;
+			selectedPiece = piece;
+			if (ShowLegalMoves)
+			{
+				legalMoves = selectedPiece.GetLegalMoves(chessGrid);
+			}
+		}
+		else if (selectedPiece.Row == row && selectedPiece.Column == col)
+		{
+			selectedPiece = null;
+			legalMoves = null;
+		}
+		else
+		{
+			if(piece == null){
+				MoveSelectedPiece(row, col);
+				return;
+			}
+			if(piece.Colour != selectedPiece.Colour){
+				MoveSelectedPiece(row, col);
+			}else{
+				selectedPiece = null;
+				HandleTileSelection(row, col);
+			}
+		}
+	}
+
+	private bool MoveSelectedPiece(int row, int col)
+	{
+		if (selectedPiece == null)
+			return false;
+		if (selectedPiece.Row == row && selectedPiece.Column == col)
+		{
+			return false;
+		}
+		bool pieceMoved = chessGrid.CheckPieceMove(selectedPiece, row, col);
+		CurrentMoveIndex = chessGrid.CurrentMoveIndex;
+		selectedPiece = null;
+		legalMoves = null;
+		StateHasChanged();
+
+		return true;
+	}
+
+	private void JumpToMove(int index)
+	{
+		if (index >= 0 && index < chessGrid.MoveHistory.Count)
+		{
+			CurrentMoveIndex = index;
+			chessGrid.RestoreBoardToMove(CurrentMoveIndex);
+			StateHasChanged();
+		}
+	}
+
+	private void GoToStart()
+	{
+		CurrentMoveIndex = 0;
+		chessGrid.RestoreBoardToMove(CurrentMoveIndex);
+		StateHasChanged();
+	}
+
+	private void GoBack()
+	{
+		if (CurrentMoveIndex > 0)
+		{
+			CurrentMoveIndex--;
+			chessGrid.RestoreBoardToMove(CurrentMoveIndex);
+			StateHasChanged();
+		}
+	}
+
+	private void GoForward()
+	{
+		if (CurrentMoveIndex < chessGrid.MoveHistory.Count)
+		{
+			CurrentMoveIndex++;
+			chessGrid.RestoreBoardToMove(CurrentMoveIndex);
+			StateHasChanged();
+		}
+	}
+
+	private void GoToEnd()
+	{
+		CurrentMoveIndex = chessGrid.MoveHistory.Count;
+		chessGrid.RestoreBoardToMove(CurrentMoveIndex);
+		StateHasChanged();
+	}
+
+
+	private async void StartDrag(int row, int col, MouseEventArgs e)
+	{
+		if(e.Button == 2){
+			ClearDrag();
+			selectedPiece = null;
+			return;
+		}
+
+		HandleTileSelection(row, col);
+		if (selectedPiece == null)
+		{
+			return;
+		}
+		if (selectedPiece != null && chessGrid.ColourToMove == selectedPiece.Colour)
+		{
+			isDragging = true;
+			draggedPiece = selectedPiece;
+			dragStartRow = row;
+			dragStartCol = col;
+			mouseX = e.ClientX;
+			mouseY = e.ClientY;
+		}
+		if(draggedPieceRef != null){
+			var rect = await JSRuntime.InvokeAsync<BoundingClientRect>("elementHelper.getBoundingClientRect", draggedPieceRef);
+			if (rect != null)
+			{
+				boardOffsetX = rect.X;
+				boardOffsetY = rect.Y;
+			}
+		}
+
+		
+	}
+
+	private void OnDragMove(MouseEventArgs e)
+	{
+		if (isDragging)
+		{
+			if (e.Button == 2)
+			{
+				ClearDrag();
+				return;
+			};
+		}
+	}
+
+	private void EndDrag(int targetRow, int targetCol, MouseEventArgs e)
+	{
+		if (isDragging && draggedPiece != null)
+		{
+			if (e.Button == 2)
+			{
+				ClearDrag();
+				return;
+			}
+			MoveSelectedPiece(targetRow, targetCol);
+		}
+
+		isDragging = false;
+		draggedPiece = null;
+	}
+	private void OnMouseMove(MouseEventArgs e)
+	{
+		if (isDragging)
+		{
+			mouseX = e.ClientX;
+			mouseY = e.ClientY;
+			StateHasChanged();
+		}
+	}
+	private void ClearDrag()
+	{
+		isDragging = false;
+		draggedPiece = null;
+		mouseX = 0;
+		mouseY = 0;
+		legalMoves = null;
+		StateHasChanged();
+	}
+	private void ContextMenu(MouseEventArgs eventArgs)
+	{
+		if (isDragging && eventArgs.Button == 2)
+		{
+			ClearDrag();
+		}
+		else
+		{
+			selectedPiece = null;
+			legalMoves = null;
+			StateHasChanged();
+		}
+
+	}
+}
