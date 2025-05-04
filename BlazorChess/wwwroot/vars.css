@@ -6,12 +6,13 @@
 :root {
     --dark: #252525;
     --darkgrey: #1a1a1a;
+    --grey: #f1f1f1;
     --darkishgrey: #333333;
     --alternatingeven: #272626;
     --alternatingodd: #333333;
     --whitetile: #f0d9b5;
     --blacktile: #b58863;
-    --whitehighlight: #f7ec8b; 
-    --blackhighlight: #d2b55b; 
+    --whitehighlight: #f7ec8b;
+    --blackhighlight: #d2b55b;
     --selectedtile: #ffd800;
 }

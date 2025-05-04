@@ -3,7 +3,8 @@
 @inject IJSRuntime JSRuntime;
 @rendermode InteractiveServer
 <div class="chess-ui">
-	<div class="chess-board" @onmousemove="OnMouseMove" @oncontextmenu="ContextMenu" @oncontextmenu:preventDefault>
+	@* @oncontextmenu:preventDefault *@
+	<div class="chess-board" @onmousemove="OnMouseMove" @oncontextmenu="ContextMenu" >
 		@for (int row = chessGrid.Height - 1; row >= 0; row--)
 		{
 			@for (int col = 0; col <= chessGrid.Width - 1; col++)
@@ -27,8 +28,10 @@
 							@chessGrid.GetPieceSymbol(row, col)
 						</div>
 					}
+					
+
 					//Pawn promotion
-@* 					@if (chessGrid.Grid[row, col] != null && chessGrid.Grid[row, col].PieceType == PieceType.Pawn)
+					@* 					@if (chessGrid.Grid[row, col] != null && chessGrid.Grid[row, col].PieceType == PieceType.Pawn)
 					{
 						<div class="promotion-options">
 							<button @onclick="() => chessGrid.PromotePawn(chessGrid.Grid[row, col], PieceType.Queen)">Q</button>
@@ -42,6 +45,13 @@
 				</div>
 			}
 		}
+		<div class="promotion-options">
+			<button class="exit-button" @ onclick="CancelPromotion">✖</button>
+			<button class="promotion-piece wb">♗</button>
+			<button class="promotion-piece wr">♖</button>
+			<button class="promotion-piece wn">♘</button>
+			<button class="promotion-piece wq">♕</button>
+		</div>
 	</div>
 	<div class="move-panel">
 		<div class="move-history">
@@ -90,14 +100,11 @@
 			@selectedPiece.PieceType
 		</div>
 	}
-	
-		<div class="promotion-options">
-			<button >Q</button>
-			<button>R</button>
-			<button >N</button>
-			<button >B</button>
-		</div>
-	
+
+
+
+
+
 </div>
 
 @code {
@@ -162,13 +169,17 @@
 		}
 		else
 		{
-			if(piece == null){
+			if (piece == null)
+			{
 				MoveSelectedPiece(row, col);
 				return;
 			}
-			if(piece.Colour != selectedPiece.Colour){
+			if (piece.Colour != selectedPiece.Colour)
+			{
 				MoveSelectedPiece(row, col);
-			}else{
+			}
+			else
+			{
 				selectedPiece = null;
 				HandleTileSelection(row, col);
 			}
@@ -239,7 +250,8 @@
 
 	private async void StartDrag(int row, int col, MouseEventArgs e)
 	{
-		if(e.Button == 2){
+		if (e.Button == 2)
+		{
 			ClearDrag();
 			selectedPiece = null;
 			return;
@@ -259,7 +271,8 @@
 			mouseX = e.ClientX;
 			mouseY = e.ClientY;
 		}
-		if(draggedPieceRef != null){
+		if (draggedPieceRef != null)
+		{
 			var rect = await JSRuntime.InvokeAsync<BoundingClientRect>("elementHelper.getBoundingClientRect", draggedPieceRef);
 			if (rect != null)
 			{
@@ -268,7 +281,7 @@
 			}
 		}
 
-		
+
 	}
 
 	private void OnDragMove(MouseEventArgs e)
@@ -328,6 +341,9 @@
 			legalMoves = null;
 			StateHasChanged();
 		}
+
+	}
+	private void CancelPromotion(){
 
 	}
 }

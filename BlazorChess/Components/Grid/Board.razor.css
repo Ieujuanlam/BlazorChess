@@ -197,3 +197,71 @@
     z-index: 1000;
     opacity: 1;
 }
+
+.promotion-options {
+    background-color: #fff;
+    border-radius: 3px;
+    bottom: 0;
+    box-shadow: 3px 3px 10px rgb(0, 0, 0, 0.65);
+    display: flex;
+    flex-direction: column-reverse;
+    height: 56.25%;
+    left: 0;
+    position: absolute;
+    top: auto;
+    width: 12.5%;
+    z-index: 3;
+    border:none;
+}
+
+    .promotion-options button {
+        font-size: 1.5rem;
+        width: 100px;
+        height: 100px;
+        background-color: white;
+        cursor: pointer;
+        border: none;
+    }
+
+.popup-up {
+    transform: translateY(-5px);
+}
+
+.popup-down {
+    transform: translateY(5px);
+}
+
+.promotion-options .exit-button{
+    height:50px;
+    background-color: var(--grey);
+    max-height:12.5%;
+    align-items:center;
+    cursor:pointer;
+    flex-grow:1;
+    justify-content:center;
+    order:4;
+    border-radius:5px 5px 0 0;
+}
+.promotion-options .top .exit-button {
+    order:0;
+}
+
+.promotion-options .promotion-piece {
+    background-repeat: no-repeat;
+    background-size: 100%;
+    cursor: pointer;
+    position: relative;
+    font-size: 80px;
+}
+.promotion-piece.wq {
+    order:0;
+}
+.promotion-piece.wn {
+    order: 1;
+}
+.promotion-piece.wr {
+    order: 2;
+}
+.promotion-piece.wb {
+    order: 3;
+}
